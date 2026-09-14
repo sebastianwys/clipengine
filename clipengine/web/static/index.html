@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClipEngine</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #151924; --panel2: #1b2130; --line: #262c3a;
+    --text: #d7dce6; --dim: #8b93a7; --accent: #e0a63f; --good: #6fbf73;
+    --bad: #c96a5a;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, sans-serif;
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+  header {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  header h1 { font-size: 16px; letter-spacing: .04em; color: var(--accent); }
+  header .stats { color: var(--dim); font-size: 12px; }
+  select, input[type=text], input[type=number], button {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 5px 8px; font: inherit; font-size: 13px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #14161c; font-weight: 600; }
+  #modehint { color: var(--dim); font-size: 12px; }
+  #banner {
+    display: none; padding: 6px 16px; font-size: 12px;
+    background: #3a2f18; color: #e8c987;
+  }
+  main { flex: 1; display: flex; min-height: 0; }
+  #gridwrap { flex: 1; overflow-y: auto; padding: 14px; }
+  #grid {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; overflow: hidden; cursor: pointer;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card.sel { outline: 2px solid var(--accent); }
+  .card img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;
+              background: #000; }
+  .card .body { padding: 7px 9px; }
+  .card .name { font-size: 12px; white-space: nowrap; overflow: hidden;
+                text-overflow: ellipsis; }
+  .card .meta { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+  .tag {
+    font-size: 10px; padding: 1px 6px; border-radius: 9px;
+    background: var(--panel2); border: 1px solid var(--line); color: var(--dim);
+  }
+  .tag.country { color: var(--accent); border-color: #4a3d1e; }
+  #detail {
+    width: 420px; min-width: 420px; border-left: 1px solid var(--line);
+    background: var(--panel); overflow-y: auto; padding: 14px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  #detail video { width: 100%; border-radius: 8px; background: #000; }
+  #detail h2 { font-size: 14px; word-break: break-all; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px;
+        font-size: 12px; }
+  .kv .k { color: var(--dim); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #spark { width: 100%; height: 44px; }
+  .match {
+    display: flex; gap: 8px; align-items: center; padding: 8px;
+    background: var(--panel2); border: 1px solid var(--line);
+    border-radius: 8px; margin-bottom: 8px;
+  }
+  .match img { width: 84px; aspect-ratio: 16/9; object-fit: cover;
+               border-radius: 4px; background: #000; }
+  .match .arrow { color: var(--dim); }
+  .match .info { flex: 1; min-width: 0; }
+  .match .info .name { font-size: 11px; white-space: nowrap; overflow: hidden;
+                       text-overflow: ellipsis; }
+  .match .score { font-weight: 700; color: var(--good); font-size: 15px; }
+  .bars { display: flex; gap: 3px; margin-top: 4px; }
+  .bar { height: 5px; border-radius: 2px; background: #2c3446; flex: 1;
+         position: relative; overflow: hidden; }
+  .bar i { position: absolute; inset: 0; background: var(--accent);
+           transform-origin: left; display: block; }
+  .match .acts { display: flex; flex-direction: column; gap: 4px; }
+  .match .acts button { font-size: 11px; padding: 3px 7px; }
+  footer {
+    border-top: 1px solid var(--line); background: var(--panel);
+    padding: 10px 16px; display: flex; gap: 10px; align-items: center;
+    min-height: 92px; flex-wrap: wrap;
+  }
+  #seq { display: flex; gap: 6px; align-items: center; flex: 1;
+         overflow-x: auto; }
+  .chip {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    font-size: 10px; color: var(--dim); min-width: 74px;
+  }
+  .chip img { width: 74px; aspect-ratio: 16/9; object-fit: cover;
+              border-radius: 4px; background: #000; }
+  .chip .x { cursor: pointer; color: var(--bad); }
+  .edge { font-size: 10px; color: var(--good); white-space: nowrap; }
+  #toast {
+    position: fixed; top: 14px; right: 14px; max-width: 440px;
+    background: var(--panel2); border: 1px solid var(--accent);
+    border-radius: 8px; padding: 10px 14px; font-size: 12px;
+    display: none; white-space: pre-wrap; word-break: break-all; z-index: 9;
+  }
+  .empty { color: var(--dim); padding: 30px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CLIPENGINE</h1>
+  <span class="stats" id="stats">loading...</span>
+  <label>mode <select id="mode"></select></label>
+  <span id="modehint"></span>
+  <label>country <select id="country"><option value="">all</option></select></label>
+  <label>move <select id="klass"><option value="">all</option></select></label>
+  <input type="text" id="search" placeholder="search name..." size="14">
+</header>
+<div id="banner">this browser reports no hevc support, so sony/dji previews
+may not play. safari plays them natively. matching still works everywhere.</div>
+<main>
+  <div id="gridwrap"><div id="grid"></div></div>
+  <aside id="detail"><div class="empty">select a clip to inspect it</div></aside>
+</main>
+<footer>
+  <div id="seq"><span class="empty" style="padding:0">sequence tray is empty:
+    add matches or auto-build from a selected seed</span></div>
+  <label>len <input type="number" id="seqlen" value="8" min="2" max="30"
+    style="width:56px"></label>
+  <label>countries <select id="cmode">
+    <option value="any">any</option>
+    <option value="same">same as seed</option>
+    <option value="travel">travel (vary)</option>
+  </select></label>
+  <button id="autobuild">auto-build</button>
+  <button id="exportseq" class="primary">export</button>
+  <button id="clearseq">clear</button>
+  <span class="edge" id="seqtotal"></span>
+</footer>
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+const MODE_HINTS = {
+  momentum: "carry motion through the cut",
+  whip: "blur-to-blur: both sides moving fast, same direction",
+  calm: "still-to-still, color-led",
+  contrast: "deliberate vibe flip",
+};
+
+const state = {
+  clips: [], mode: "momentum", selected: null,
+  seq: [], edges: null,
+};
+
+const $ = (id) => document.getElementById(id);
+
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function toast(msg, ms = 4000) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.display = "none"; }, ms);
+}
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `http ${r.status}`);
+  return j;
+}
+
+// -- header / filters ------------------------------------------------------
+
+async function loadOverview() {
+  const ov = await api("/api/overview");
+  const t = ov.totals;
+  $("stats").textContent =
+    `${t.analyzed || 0} analyzed / ${t.available || 0} local / ` +
+    `${t.total || 0} cataloged (${t.evicted || 0} in icloud)`;
+  const mode = $("mode");
+  mode.replaceChildren();
+  for (const m of ov.modes) mode.append(new Option(m, m));
+  mode.value = state.mode;
+  $("modehint").textContent = MODE_HINTS[state.mode] || "";
+  const country = $("country");
+  for (const c of ov.countries) {
+    if (c.analyzed > 0)
+      country.append(new Option(`${c.country} (${c.analyzed})`, c.country));
+  }
+}
+
+async function loadClips() {
+  const p = new URLSearchParams();
+  if ($("country").value) p.set("country", $("country").value);
+  if ($("klass").value) p.set("klass", $("klass").value);
+  if ($("search").value.trim()) p.set("q", $("search").value.trim());
+  const data = await api("/api/clips?" + p);
+  state.clips = data.clips;
+  renderGrid();
+  refreshClassFilter();
+}
+
+function refreshClassFilter() {
+  const sel = $("klass");
+  const current = sel.value;
+  const classes = new Set();
+  for (const c of state.clips) {
+    classes.add(c.start_class); classes.add(c.end_class);
+  }
+  sel.replaceChildren(new Option("all", ""));
+  [...classes].sort().forEach((k) => sel.append(new Option(k, k)));
+  sel.value = current;
+}
+
+// -- grid ---------------------------------------------------------------------
+
+function thumbUrl(id, pos) { return `/thumb/${id}/${pos}.jpg`; }
+
+function renderGrid() {
+  const grid = $("grid");
+  grid.replaceChildren();
+  if (!state.clips.length) {
+    grid.append(el("div", "empty",
+      "no analyzed clips match. run: python -m clipengine analyze"));
+    return;
+  }
+  for (const c of state.clips) {
+    const card = el("div", "card");
+    card.dataset.id = c.id;
+    if (state.selected === c.id) card.classList.add("sel");
+    const img = el("img");
+    img.loading = "lazy";
+    img.src = thumbUrl(c.id, "mid");
+    let cycle = null, phase = 0;
+    card.addEventListener("mouseenter", () => {
+      const seq = ["start", "mid", "end"];
+      cycle = setInterval(() => {
+        phase = (phase + 1) % seq.length;
+        img.src = thumbUrl(c.id, seq[phase]);
+      }, 650);
+    });
+    card.addEventListener("mouseleave", () => {
+      clearInterval(cycle); img.src = thumbUrl(c.id, "mid");
+    });
+    const body = el("div", "body");
+    body.append(el("div", "name", c.name));
+    const meta = el("div", "meta");
+    meta.append(el("span", "tag country", c.country));
+    meta.append(el("span", "tag", `${c.start_class} -> ${c.end_class}`));
+    if (c.duration_s) meta.append(el("span", "tag", `${c.duration_s.toFixed(1)}s`));
+    body.append(meta);
+    card.append(img, body);
+    card.addEventListener("click", () => selectClip(c.id));
+    grid.append(card);
+  }
+}
+
+// -- detail panel ------------------------------------------------------------
+
+async function selectClip(id) {
+  state.selected = id;
+  document.querySelectorAll(".card").forEach((c) =>
+    c.classList.toggle("sel", Number(c.dataset.id) === id));
+  const d = await api(`/api/clip/${id}`);
+  const panel = $("detail");
+  panel.replaceChildren();
+
+  const video = el("video");
+  video.controls = true; video.preload = "metadata"; video.muted = true;
+  video.src = `/media/${id}`;
+  panel.append(video);
+
+  panel.append(el("h2", null, `#${d.id} ${d.name}`));
+
+  const s = d.summary || {};
+  const kv = el("div", "kv");
+  const add = (k, v) => { kv.append(el("span", "k", k), el("span", null, v)); };
+  add("country", d.country);
+  add("profile", d.profile);
+  if (s.duration_s) add("duration", `${s.duration_s}s @ ${s.fps} fps`);
+  if (s.width) add("size", `${s.width}x${s.height} ${s.codec || ""}`);
+  if (s.created) add("shot", s.created);
+  add("start", s.start_class || "?");
+  add("end", s.end_class || "?");
+  if (s.flat !== undefined) add("log-flat", s.flat ? "yes (normalized)" : "no");
+  if (s.start) add("start color",
+    `luma ${s.start.luma} sat ${s.start.sat} warmth ${s.start.warmth}`);
+  if (s.end) add("end color",
+    `luma ${s.end.luma} sat ${s.end.sat} warmth ${s.end.warmth}`);
+  panel.append(kv);
+
+  if (s.energy_profile && s.energy_profile.length > 1) {
+    panel.append(el("div", "k", "motion energy over time"));
+    panel.append(sparkline(s.energy_profile));
+  }
+
+  const row = el("div", "row");
+  const scope = el("select");
+  ["any", "same", "different"].forEach((v) =>
+    scope.append(new Option(`country: ${v}`, v)));
+  const btn = el("button", "primary", "find matches");
+  btn.addEventListener("click", () => loadMatches(id, scope.value));
+  const seed = el("button", null, "+ tray");
+  seed.addEventListener("click", () => addToSeq(d.id, d.name, d.country));
+  row.append(btn, scope, seed);
+  panel.append(row);
+
+  panel.append(el("div", null, ""));
+  const list = el("div");
+  list.id = "matches";
+  panel.append(list);
+  if (d.error) toast(`analysis error on this clip: ${d.error}`);
+}
+
+function sparkline(values) {
+  const w = 380, h = 44, pad = 2;
+  const max = Math.max(...values, 0.001);
+  const pts = values.map((v, i) => {
+    const x = pad + (i * (w - 2 * pad)) / (values.length - 1);
+    const y = h - pad - (v / max) * (h - 2 * pad);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  svg.id = "spark";
+  const line = document.createElementNS(svg.namespaceURI, "polyline");
+  line.setAttribute("points", pts);
+  line.setAttribute("fill", "none");
+  line.setAttribute("stroke", "#e0a63f");
+  line.setAttribute("stroke-width", "2");
+  svg.append(line);
+  return svg;
+}
+
+// -- matches ---------------------------------------------------------------
+
+async function loadMatches(id, countryScope) {
+  const list = $("matches");
+  list.replaceChildren(el("div", "empty", "scoring..."));
+  try {
+    const data = await api(
+      `/api/matches?clip=${id}&mode=${state.mode}&n=12&country=${countryScope}`);
+    list.replaceChildren();
+    list.append(el("div", "k",
+      `best cuts out of this clip (${data.mode} mode)`));
+    if (!data.matches.length) {
+      list.append(el("div", "empty",
+        "no candidates pass this mode's gate. try another mode."));
+      return;
+    }
+    for (const m of data.matches) {
+      const rowEl = el("div", "match");
+      const a = el("img"); a.src = thumbUrl(id, "end"); a.title = "end of selected clip";
+      const b = el("img"); b.src = thumbUrl(m.id, "start"); b.title = "start of candidate";
+      const info = el("div", "info");
+      info.append(el("div", "name", `#${m.id} ${m.name}`));
+      info.append(el("div", "name", `${m.country} - starts ${m.start_class}`));
+      const bars = el("div", "bars");
+      for (const key of ["motion", "energy", "color", "luma"]) {
+        const bar = el("div", "bar");
+        const fill = el("i");
+        fill.style.transform = `scaleX(${m.breakdown[key] ?? 0})`;
+        bar.title = `${key}: ${m.breakdown[key]}`;
+        bar.append(fill);
+        bars.append(bar);
+      }
+      info.append(bars);
+      const acts = el("div", "acts");
+      const prev = el("button", null, "open");
+      prev.addEventListener("click", () => selectClip(m.id));
+      const addBtn = el("button", null, "+ tray");
+      addBtn.addEventListener("click", () => addToSeq(m.id, m.name, m.country));
+      acts.append(prev, addBtn);
+      rowEl.append(a, el("span", "arrow", "->"), b,
+                   info, el("span", "score", m.score.toFixed(2)), acts);
+      list.append(rowEl);
+    }
+  } catch (err) {
+    list.replaceChildren(el("div", "empty", String(err.message || err)));
+  }
+}
+
+// -- sequence tray ------------------------------------------------------------
+
+function addToSeq(id, name, country) {
+  if (state.seq.some((c) => c.id === id)) { toast("already in tray"); return; }
+  state.seq.push({ id, name, country });
+  state.edges = null;
+  renderSeq();
+}
+
+function renderSeq() {
+  const wrap = $("seq");
+  wrap.replaceChildren();
+  if (!state.seq.length) {
+    wrap.append(el("span", "empty",
+      "sequence tray is empty: add matches or auto-build from a selected seed"));
+    $("seqtotal").textContent = "";
+    return;
+  }
+  state.seq.forEach((c, i) => {
+    if (i > 0) {
+      const e = state.edges ? state.edges[i - 1].toFixed(2) : "->";
+      wrap.append(el("span", "edge", e));
+    }
+    const chip = el("div", "chip");
+    const img = el("img");
+    img.src = thumbUrl(c.id, "mid");
+    img.title = c.name;
+    img.addEventListener("click", () => selectClip(c.id));
+    const label = el("div", null, `#${c.id} ${c.country}`);
+    const x = el("span", "x", "remove");
+    x.addEventListener("click", () => {
+      state.seq.splice(i, 1); state.edges = null; renderSeq();
+    });
+    chip.append(img, label, x);
+    wrap.append(chip);
+  });
+  $("seqtotal").textContent = state.edges
+    ? `total ${state.edges.reduce((a, b) => a + b, 0).toFixed(2)}`
+    : `${state.seq.length} clips (unscored order)`;
+}
+
+async function autoBuild() {
+  if (!state.selected) { toast("select a seed clip first"); return; }
+  try {
+    const data = await api(
+      `/api/sequence?seed=${state.selected}&length=${$("seqlen").value}` +
+      `&mode=${state.mode}&country_mode=${$("cmode").value}`);
+    state.seq = data.clips.map((c) =>
+      ({ id: c.id, name: c.name, country: c.country }));
+    state.edges = data.edges;
+    renderSeq();
+    toast(`built ${data.clips.length}-clip chain, total ${data.total}`);
+  } catch (err) { toast(String(err.message || err)); }
+}
+
+async function exportSeq() {
+  if (state.seq.length < 2) { toast("tray needs at least two clips"); return; }
+  try {
+    const data = await api("/api/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: state.seq.map((c) => c.id), mode: state.mode }),
+    });
+    state.edges = null;
+    toast(`exported (total ${data.total}):\n${data.json}\n${data.m3u8}\n` +
+          `${data.fcpxml}\nfcpxml imports into final cut or resolve`, 12000);
+  } catch (err) { toast(String(err.message || err)); }
+}
+
+// -- wiring ------------------------------------------------------------------
+
+function checkHevc() {
+  const v = document.createElement("video");
+  const ok = v.canPlayType('video/mp4; codecs="hvc1.1.6.L120.b0"') ||
+             v.canPlayType('video/mp4; codecs="hev1.1.6.L120.b0"');
+  if (!ok) $("banner").style.display = "block";
+}
+
+$("mode").addEventListener("change", (e) => {
+  state.mode = e.target.value;
+  $("modehint").textContent = MODE_HINTS[state.mode] || "";
+});
+$("country").addEventListener("change", loadClips);
+$("klass").addEventListener("change", () => { renderFiltered(); });
+$("search").addEventListener("input", debounce(loadClips, 350));
+$("autobuild").addEventListener("click", autoBuild);
+$("exportseq").addEventListener("click", exportSeq);
+$("clearseq").addEventListener("click", () => {
+  state.seq = []; state.edges = null; renderSeq();
+});
+
+function renderFiltered() { loadClips(); }
+
+function debounce(fn, ms) {
+  let timer = null;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
+(async function init() {
+  checkHevc();
+  try {
+    await loadOverview();
+    await loadClips();
+    renderSeq();
+  } catch (err) {
+    toast(`startup failed: ${err.message || err}`, 10000);
+  }
+})();
+</script>
+</body>
+</html>
